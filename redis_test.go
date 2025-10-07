@@ -10,7 +10,7 @@ import (
 )
 
 var client=redis.NewClient(&redis.Options{
-	Addr:"172.23.0.2:6379",
+	Addr:"172.23.0.4:6379",
 	DB:0,
 })
 
@@ -86,4 +86,35 @@ func TestHash(t *testing.T) {
 	assert.Equal(t,"fajar@example.com",user["email"])
 
 	client.Del(ctx,"user:1")
+}
+
+func TestGeoPoint(t *testing.T) {
+	client.GeoAdd(ctx,"sellers", &redis.GeoLocation{
+		Name:"Toko A",
+		Longitude:106.818489,
+		Latitude:-6.178966,
+	})
+
+	client.GeoAdd(ctx, "sellers", &redis.GeoLocation{
+		Name:"Toko B",
+		Longitude:106.821568,
+		Latitude:-6.180662,
+	})
+
+	distance := client.GeoDist(ctx, "sellers","Toko A","Toko B","km").Val()
+	assert.Equal(t,0.3892,distance)
+
+	client.GeoSearch(ctx,"sellers", &redis.GeoSearchQuery{
+		Longitude:0,
+		Latitude:0,
+		Radius:5,
+		RadiusUnit:"km",
+	})
+}
+
+func TestHyperLogLog(t *testing.T) {
+	client.PFAdd(ctx, "visitors","Rama","Fajar")
+	client.PFAdd(ctx, "visitors","Purbaya","Susi")
+	client.PFAdd(ctx, "visitors","Freya","Flora")
+	assert.Equal(t,int64(6), client.PFCount(ctx,"visitors").Val())
 }
