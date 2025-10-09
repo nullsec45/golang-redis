@@ -118,3 +118,40 @@ func TestHyperLogLog(t *testing.T) {
 	client.PFAdd(ctx, "visitors","Freya","Flora")
 	assert.Equal(t,int64(6), client.PFCount(ctx,"visitors").Val())
 }
+
+func TestPipeline(t *testing.T) {
+	_, err := client.Pipelined(ctx, func(pipeliner redis.Pipeliner) error {
+		pipeliner.SetEx(ctx, "name","Fajar", 5 * time.Second)
+		pipeliner.SetEx(ctx, "address","Indonesia", 5 * time.Second)
+		return nil
+	})
+
+	assert.Nil(t, err)
+}
+
+func TestTransaction(t *testing.T) {
+	_, err := client.TxPipelined(ctx, func(pipeliner redis.Pipeliner) error {
+		pipeliner.SetEx(ctx, "name","Fajar", 5 * time.Second)
+		pipeliner.SetEx(ctx, "address","Indonesia", 5 * time.Second)
+		return nil
+	})
+
+	assert.Nil(t, err)
+
+	assert.Equal(t, "Fajar", client.Get(ctx,"name").Val())
+	assert.Equal(t, "Indonesia", client.Get(ctx,"address").Val())
+}
+
+func TestPublishStream(t *testing.T) {
+	for i := 0; i < 10; i ++ {
+		err := client.XAdd(ctx, &redis.XAddArgs{
+			Stream:"members",
+			Values:map[string]interface{}{
+				"name":"Fajar",
+				"address":"Indonesia",
+			},
+		}).Err()
+
+		assert.Nil(t, err)
+	}
+}
