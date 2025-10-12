@@ -7,10 +7,11 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"strconv"
 )
 
 var client=redis.NewClient(&redis.Options{
-	Addr:"172.23.0.4:6379",
+	Addr:"172.23.0.2:6379",
 	DB:0,
 })
 
@@ -152,6 +153,46 @@ func TestPublishStream(t *testing.T) {
 			},
 		}).Err()
 
+		assert.Nil(t, err)
+	}
+}
+
+func TestCreateConsumerGrop(t *testing.T) {
+	client.XGroupCreate(ctx, "members","group-1","0")
+	client.XGroupCreate(ctx, "members","group-1","consumer-1")
+	client.XGroupCreate(ctx, "members","group-1","consumer-2")
+}
+
+func TestGetStream(t *testing.T) {
+	result := client.XReadGroup(ctx, &redis.XReadGroupArgs{
+		Group:"group-1",
+		Consumer:"consumer-1",
+		Streams:[]string{"members",">"},
+		Count:2,
+		Block:time.Second * 5,
+	}).Val()
+
+	for _, stream := range result{
+		for _, message := range stream.Messages{
+			fmt.Println(message.ID)
+			fmt.Println(message.Values)
+		}
+	}
+}
+
+func TestSubscribePubSub(t *testing.T) {
+	subscriber := client.Subscribe(ctx,"channel-1")
+	defer subscriber.Close()
+	for i:=0;i < 10;i++ {
+		message, err := subscriber.ReceiveMessage(ctx)
+		assert.Nil(t, err)
+		fmt.Println(message.Payload)
+	}
+}
+
+func TestPublishPubSub(t *testing.T) {
+	for i := 0; i < 10;i++ {
+		err := client.Publish(ctx,"channel-1","Hello "+strconv.Itoa(i)).Err()
 		assert.Nil(t, err)
 	}
 }
